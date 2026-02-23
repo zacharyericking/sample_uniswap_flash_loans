@@ -1,12 +1,17 @@
+// Author: Zachary King - github.com/zacharyericking/sample_uniswap_flash_loans
+
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.26;
 
-import {Test} from "./utils/Test.sol";
-import {ArbTypes} from "../src/ArbTypes.sol";
-import {TriangularArbExecutor} from "../src/TriangularArbExecutor.sol";
-import {MockERC20} from "./mocks/MockERC20.sol";
-import {MockSwapRouter} from "./mocks/MockSwapRouter.sol";
+import { Test } from "./utils/Test.sol";
+import { ArbTypes } from "../src/ArbTypes.sol";
+import { TriangularArbExecutor } from "../src/TriangularArbExecutor.sol";
+import { MockERC20 } from "./mocks/MockERC20.sol";
+import { MockSwapRouter } from "./mocks/MockSwapRouter.sol";
 
+/// @title TriangularArbExecutorTest
+/// @notice Verifies executor-level authorization and pause/owner safety controls.
+/// @dev These tests support module objective by proving only the supervisor can execute swaps.
 contract TriangularArbExecutorTest is Test {
     TriangularArbExecutor internal executor;
     MockSwapRouter internal router;
@@ -18,6 +23,7 @@ contract TriangularArbExecutorTest is Test {
     address internal supervisor;
     address internal payer;
 
+    /// @notice Deploys executor and mock assets for each test.
     function setUp() public {
         owner = address(this);
         supervisor = address(0x1234);
@@ -34,6 +40,7 @@ contract TriangularArbExecutorTest is Test {
         tokenIn.approve(address(executor), type(uint256).max);
     }
 
+    /// @notice Confirms direct callers cannot bypass supervisor gate.
     function testOnlySupervisorCanExecute() public {
         ArbTypes.Opportunity memory opportunity = _opportunity();
 
@@ -41,6 +48,7 @@ contract TriangularArbExecutorTest is Test {
         executor.executeOpportunity(opportunity, payer);
     }
 
+    /// @notice Confirms pause state blocks supervisor-triggered execution.
     function testPauseBlocksExecution() public {
         executor.setPaused(true);
         ArbTypes.Opportunity memory opportunity = _opportunity();
@@ -50,6 +58,7 @@ contract TriangularArbExecutorTest is Test {
         executor.executeOpportunity(opportunity, payer);
     }
 
+    /// @notice Confirms token rescue remains owner-gated.
     function testRescueTokenOnlyOwner() public {
         tokenIn.mint(address(executor), 100e18);
         vm.expectRevert(bytes4(keccak256("Unauthorized()")));
@@ -57,6 +66,7 @@ contract TriangularArbExecutorTest is Test {
         executor.rescueToken(address(tokenIn), address(0xFEED), 100e18);
     }
 
+    /// @notice Builds a baseline valid opportunity payload for tests.
     function _opportunity() internal view returns (ArbTypes.Opportunity memory opportunity) {
         opportunity = ArbTypes.Opportunity({
             predictionId: bytes32(uint256(1)),

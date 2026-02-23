@@ -1,5 +1,12 @@
+// Author: Zachary King - github.com/zacharyericking/sample_uniswap_flash_loans
+
 // Author: Zachary King - github.com/zacharyericking
-import { Wallet, TypedDataDomain } from "ethers";
+/**
+ * Objective:
+ * Generate a deterministic EIP-712 signature for `ArbTypes.Opportunity` so
+ * `ArbSupervisor` can authorize and execute a constrained triangular opportunity.
+ */
+import { Wallet, TypedDataDomain, getAddress, isHexString } from "ethers";
 
 type Opportunity = {
   predictionId: string;
@@ -27,33 +34,87 @@ function requiredEnv(name: string): string {
   return value;
 }
 
+function requiredAddress(name: string): string {
+  return getAddress(requiredEnv(name));
+}
+
+function requiredUintString(name: string): string {
+  const raw = requiredEnv(name);
+  const parsed = BigInt(raw);
+  if (parsed < 0n) {
+    throw new Error(`Expected non-negative integer env var: ${name}`);
+  }
+  return parsed.toString();
+}
+
+function requiredUint24(name: string): number {
+  const raw = BigInt(requiredEnv(name));
+  if (raw <= 0n || raw > 0xffffffn) {
+    throw new Error(`Expected uint24 > 0 env var: ${name}`);
+  }
+  return Number(raw);
+}
+
+function requiredBytes32(name: string): string {
+  const value = requiredEnv(name);
+  if (!isHexString(value, 32)) {
+    throw new Error(`Expected bytes32 env var: ${name}`);
+  }
+  return value;
+}
+
 async function main() {
   const signerPk = requiredEnv("SUPERVISOR_SIGNER_PRIVATE_KEY");
+  if (!isHexString(signerPk) || signerPk.length !== 66) {
+    throw new Error("SUPERVISOR_SIGNER_PRIVATE_KEY must be a 32-byte hex key");
+  }
 
   const domain: TypedDataDomain = {
     name: "ArbSupervisor",
     version: "1",
-    chainId: Number(requiredEnv("CHAIN_ID")),
-    verifyingContract: requiredEnv("SUPERVISOR_ADDRESS"),
+    chainId: Number(requiredUintString("CHAIN_ID")),
+    verifyingContract: requiredAddress("SUPERVISOR_ADDRESS"),
   };
+  if (!Number.isSafeInteger(domain.chainId) || domain.chainId <= 0) {
+    throw new Error("CHAIN_ID must be a positive safe integer");
+  }
 
   const opportunity: Opportunity = {
-    predictionId: requiredEnv("PREDICTION_ID"),
-    recipient: requiredEnv("RECIPIENT"),
-    tokenIn: requiredEnv("TOKEN_IN"),
-    tokenMidA: requiredEnv("TOKEN_MID_A"),
-    tokenMidB: requiredEnv("TOKEN_MID_B"),
-    feeAB: Number(requiredEnv("FEE_AB")),
-    feeBC: Number(requiredEnv("FEE_BC")),
-    feeCA: Number(requiredEnv("FEE_CA")),
-    amountIn: requiredEnv("AMOUNT_IN"),
-    minOutAB: requiredEnv("MIN_OUT_AB"),
-    minOutBC: requiredEnv("MIN_OUT_BC"),
-    minOutCA: requiredEnv("MIN_OUT_CA"),
-    minProfit: requiredEnv("MIN_PROFIT"),
-    nonce: requiredEnv("NONCE"),
-    deadline: requiredEnv("DEADLINE"),
+    predictionId: requiredBytes32("PREDICTION_ID"),
+    recipient: requiredAddress("RECIPIENT"),
+    tokenIn: requiredAddress("TOKEN_IN"),
+    tokenMidA: requiredAddress("TOKEN_MID_A"),
+    tokenMidB: requiredAddress("TOKEN_MID_B"),
+    feeAB: requiredUint24("FEE_AB"),
+    feeBC: requiredUint24("FEE_BC"),
+    feeCA: requiredUint24("FEE_CA"),
+    amountIn: requiredUintString("AMOUNT_IN"),
+    minOutAB: requiredUintString("MIN_OUT_AB"),
+    minOutBC: requiredUintString("MIN_OUT_BC"),
+    minOutCA: requiredUintString("MIN_OUT_CA"),
+    minProfit: requiredUintString("MIN_PROFIT"),
+    nonce: requiredUintString("NONCE"),
+    deadline: requiredUintString("DEADLINE"),
   };
+  if (
+    opportunity.tokenIn === opportunity.tokenMidA ||
+    opportunity.tokenIn === opportunity.tokenMidB ||
+    opportunity.tokenMidA === opportunity.tokenMidB
+  ) {
+    throw new Error("Route tokens must be distinct");
+  }
+  if (
+    BigInt(opportunity.amountIn) === 0n ||
+    BigInt(opportunity.minOutAB) === 0n ||
+    BigInt(opportunity.minOutBC) === 0n ||
+    BigInt(opportunity.minOutCA) === 0n ||
+    BigInt(opportunity.minProfit) === 0n
+  ) {
+    throw new Error("amountIn, minOutAB, minOutBC, minOutCA, minProfit must all be > 0");
+  }
+  if (BigInt(opportunity.deadline) === 0n) {
+    throw new Error("deadline must be > 0");
+  }
 
   const types = {
     Opportunity: [

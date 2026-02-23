@@ -1,14 +1,20 @@
+// Author: Zachary King - github.com/zacharyericking/sample_uniswap_flash_loans
+
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.26;
 
-import {Test} from "./utils/Test.sol";
-import {ArbTypes} from "../src/ArbTypes.sol";
-import {ArbSupervisor} from "../src/ArbSupervisor.sol";
-import {TriangularArbExecutor} from "../src/TriangularArbExecutor.sol";
-import {MockERC20} from "./mocks/MockERC20.sol";
-import {MockSwapRouter} from "./mocks/MockSwapRouter.sol";
-import {ReentrantToken} from "./mocks/ReentrantToken.sol";
+import { Test } from "./utils/Test.sol";
+import { ArbTypes } from "../src/ArbTypes.sol";
+import { ArbSupervisor } from "../src/ArbSupervisor.sol";
+import { TriangularArbExecutor } from "../src/TriangularArbExecutor.sol";
+import { MockERC20 } from "./mocks/MockERC20.sol";
+import { MockSwapRouter } from "./mocks/MockSwapRouter.sol";
+import { ReentrantToken } from "./mocks/ReentrantToken.sol";
 
+/// @title ArbSupervisorTest
+/// @notice Verifies signature-gated arbitrage supervision and security invariants.
+/// @dev These tests map to repository objective by proving execution is authorized,
+///      replay-safe, profitable, and reentrancy-resistant.
 contract ArbSupervisorTest is Test {
     uint256 private constant SIGNER_PK = 0xA11CE;
     uint256 private constant OPERATOR_PK = 0xB0B;
@@ -25,6 +31,7 @@ contract ArbSupervisorTest is Test {
     address internal signer;
     address internal operator;
 
+    /// @notice Deploys contracts and baseline route configuration for each test.
     function setUp() public {
         owner = address(this);
         signer = vm.addr(SIGNER_PK);
@@ -48,6 +55,7 @@ contract ArbSupervisorTest is Test {
         router.setRate(address(tokenMidA), address(tokenMidB), 3000, 1, 1);
     }
 
+    /// @notice Confirms profitable opportunity execution returns expected output/profit.
     function testExecutePredictionProfitable() public {
         router.setRate(address(tokenMidB), address(tokenIn), 10_000, 102, 100);
 
@@ -65,6 +73,7 @@ contract ArbSupervisorTest is Test {
         assertEq(tokenIn.balanceOf(operator), start + 20e18, "operator net profit mismatch");
     }
 
+    /// @notice Ensures execution reverts when cycle is not profitable.
     function testRevertWhenNoProfit() public {
         router.setRate(address(tokenMidB), address(tokenIn), 10_000, 99, 100);
         ArbTypes.Opportunity memory opportunity = _makeOpportunity(
@@ -78,6 +87,7 @@ contract ArbSupervisorTest is Test {
         supervisor.executePrediction(opportunity, signature);
     }
 
+    /// @notice Ensures unauthorized signatures are rejected.
     function testRevertOnInvalidSigner() public {
         router.setRate(address(tokenMidB), address(tokenIn), 10_000, 102, 100);
         ArbTypes.Opportunity memory opportunity = _makeOpportunity(
@@ -90,6 +100,7 @@ contract ArbSupervisorTest is Test {
         supervisor.executePrediction(opportunity, signature);
     }
 
+    /// @notice Ensures expired opportunities cannot be executed.
     function testRevertOnDeadlineExpiry() public {
         router.setRate(address(tokenMidB), address(tokenIn), 10_000, 102, 100);
         ArbTypes.Opportunity memory opportunity = _makeOpportunity(
@@ -103,6 +114,7 @@ contract ArbSupervisorTest is Test {
         supervisor.executePrediction(opportunity, signature);
     }
 
+    /// @notice Ensures digest replay protection blocks second execution.
     function testRevertOnReplay() public {
         router.setRate(address(tokenMidB), address(tokenIn), 10_000, 102, 100);
         ArbTypes.Opportunity memory opportunity = _makeOpportunity(
@@ -118,6 +130,7 @@ contract ArbSupervisorTest is Test {
         supervisor.executePrediction(opportunity, signature);
     }
 
+    /// @notice Ensures caller/recipient mismatch is blocked when enforcement is enabled.
     function testRevertOnUnauthorizedRecipientCallerMismatch() public {
         router.setRate(address(tokenMidB), address(tokenIn), 10_000, 102, 100);
         ArbTypes.Opportunity memory opportunity = _makeOpportunity(
@@ -130,6 +143,7 @@ contract ArbSupervisorTest is Test {
         supervisor.executePrediction(opportunity, signature);
     }
 
+    /// @notice Ensures non-whitelisted fee tiers are rejected.
     function testRevertOnDisallowedFeeTier() public {
         router.setRate(address(tokenMidB), address(tokenIn), 10_000, 102, 100);
         supervisor.setAllowedFeeTier(3000, false);
@@ -144,6 +158,7 @@ contract ArbSupervisorTest is Test {
         supervisor.executePrediction(opportunity, signature);
     }
 
+    /// @notice Ensures slippage floor failure from router bubbles up as revert.
     function testRevertOnSlippageMinOutFinal() public {
         router.setRate(address(tokenMidB), address(tokenIn), 10_000, 101, 100);
         ArbTypes.Opportunity memory opportunity = _makeOpportunity(
@@ -157,6 +172,7 @@ contract ArbSupervisorTest is Test {
         supervisor.executePrediction(opportunity, signature);
     }
 
+    /// @notice Confirms malicious token callback cannot reenter supervisor execution.
     function testReentrancyAttemptFromMaliciousTokenIsBlocked() public {
         ReentrantToken maliciousIn = new ReentrantToken();
         MockERC20 midA = new MockERC20("MidA", "MA", 18);
@@ -180,7 +196,8 @@ contract ArbSupervisorTest is Test {
         ArbTypes.Opportunity memory opportunity = _makeOpportunity(
             address(maliciousIn), address(midA), address(midB), operator, 1000e18, 1e18
         );
-        bytes memory signature = _signOpportunityForSupervisor(opportunity, SIGNER_PK, address(localSupervisor));
+        bytes memory signature =
+            _signOpportunityForSupervisor(opportunity, SIGNER_PK, address(localSupervisor));
         maliciousIn.configureAttack(address(localSupervisor), opportunity, signature);
 
         vm.prank(operator);
@@ -190,6 +207,7 @@ contract ArbSupervisorTest is Test {
         assertFalse(maliciousIn.succeeded(), "reentry unexpectedly succeeded");
     }
 
+    /// @notice Fuzzes digest replay protection across varied amounts/nonces.
     function testFuzz_ReplayProtectionByDigest(uint256 amountIn, uint256 nonce) public {
         amountIn = (amountIn % 10_000e18) + 1e18;
         router.setRate(address(tokenMidB), address(tokenIn), 10_000, 105, 100);
@@ -209,6 +227,7 @@ contract ArbSupervisorTest is Test {
         supervisor.executePrediction(opportunity, signature);
     }
 
+    /// @notice Builds a baseline opportunity payload used across tests.
     function _makeOpportunity(
         address _tokenIn,
         address _midA,
@@ -218,7 +237,9 @@ contract ArbSupervisorTest is Test {
         uint256 _minProfit
     ) internal view returns (ArbTypes.Opportunity memory opportunity) {
         opportunity = ArbTypes.Opportunity({
-            predictionId: keccak256(abi.encode(_tokenIn, _midA, _midB, _recipient, _amountIn, block.timestamp)),
+            predictionId: keccak256(
+                abi.encode(_tokenIn, _midA, _midB, _recipient, _amountIn, block.timestamp)
+            ),
             recipient: _recipient,
             tokenIn: _tokenIn,
             tokenMidA: _midA,
@@ -236,6 +257,7 @@ contract ArbSupervisorTest is Test {
         });
     }
 
+    /// @notice Signs opportunity for the default supervisor.
     function _signOpportunity(ArbTypes.Opportunity memory opportunity, uint256 pk)
         internal
         returns (bytes memory)
@@ -243,6 +265,8 @@ contract ArbSupervisorTest is Test {
         return _signOpportunityForSupervisor(opportunity, pk, address(supervisor));
     }
 
+    /// @notice Signs opportunity for an arbitrary supervisor address.
+    /// @dev Mirrors production EIP-712 domain layout for deterministic tests.
     function _signOpportunityForSupervisor(
         ArbTypes.Opportunity memory opportunity,
         uint256 pk,
@@ -269,8 +293,9 @@ contract ArbSupervisorTest is Test {
             )
         );
 
-        bytes32 domainTypeHash =
-            keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
+        bytes32 domainTypeHash = keccak256(
+            "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
+        );
         bytes32 domainSeparator = keccak256(
             abi.encode(
                 domainTypeHash,

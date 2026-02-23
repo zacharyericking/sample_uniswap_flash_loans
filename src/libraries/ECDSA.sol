@@ -1,6 +1,11 @@
+// Author: Zachary King - github.com/zacharyericking/sample_uniswap_flash_loans
+
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.26;
 
+/// @title ECDSA
+/// @notice Signature recovery utilities with malleability protections.
+/// @dev Supports supervisor authorization by safely recovering signers from 65-byte signatures.
 library ECDSA {
     error InvalidSignatureLength();
     error InvalidSignatureS();
@@ -11,6 +16,11 @@ library ECDSA {
     uint256 private constant _HALF_ORDER =
         0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0;
 
+    /// @notice Recovers signer address from a typed-data digest and signature bytes.
+    /// @dev Enforces canonical low-s signatures and strict v domain (27/28) to block malleability.
+    /// @param digest EIP-712 digest produced by the verifying contract domain and struct hash.
+    /// @param signature Encoded `(r,s,v)` signature bytes.
+    /// @return signer Recovered signer address.
     function recover(bytes32 digest, bytes calldata signature) internal pure returns (address) {
         if (signature.length != 65) {
             revert InvalidSignatureLength();
