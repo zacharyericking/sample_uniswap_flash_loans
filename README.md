@@ -159,5 +159,5 @@ Required environment variables:
 - `DEADLINE`
 - `RPC_URL`
 
-Run:
+Run: 
 `forge script script/ExecutePrediction.s.sol:ExecutePrediction --rpc-url $RPC_URL --broadcast`
