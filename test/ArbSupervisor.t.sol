@@ -130,6 +130,30 @@ contract ArbSupervisorTest is Test {
         supervisor.executePrediction(opportunity, signature);
     }
 
+    /// @notice Ensures predictionId namespace is isolated from digest replay tracking.
+    function testPredictionIdEqualToPriorDigestDoesNotFalseTriggerReplay() public {
+        router.setRate(address(tokenMidB), address(tokenIn), 10_000, 102, 100);
+
+        ArbTypes.Opportunity memory first = _makeOpportunity(
+            address(tokenIn), address(tokenMidA), address(tokenMidB), operator, 1000e18, 1e18
+        );
+        bytes32 firstDigest = _digestForSupervisor(first, address(supervisor));
+        bytes memory firstSignature = _signOpportunity(first, SIGNER_PK);
+
+        vm.prank(operator);
+        supervisor.executePrediction(first, firstSignature);
+
+        ArbTypes.Opportunity memory second = _makeOpportunity(
+            address(tokenIn), address(tokenMidA), address(tokenMidB), operator, 1000e18, 1e18
+        );
+        second.nonce += 1;
+        second.predictionId = firstDigest;
+        bytes memory secondSignature = _signOpportunity(second, SIGNER_PK);
+
+        vm.prank(operator);
+        supervisor.executePrediction(second, secondSignature);
+    }
+
     /// @notice Ensures caller/recipient mismatch is blocked when enforcement is enabled.
     function testRevertOnUnauthorizedRecipientCallerMismatch() public {
         router.setRate(address(tokenMidB), address(tokenIn), 10_000, 102, 100);
@@ -272,6 +296,16 @@ contract ArbSupervisorTest is Test {
         uint256 pk,
         address supervisorAddress
     ) internal returns (bytes memory) {
+        bytes32 digest = _digestForSupervisor(opportunity, supervisorAddress);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, digest);
+        return abi.encodePacked(r, s, v);
+    }
+
+    function _digestForSupervisor(ArbTypes.Opportunity memory opportunity, address supervisorAddress)
+        internal
+        view
+        returns (bytes32)
+    {
         bytes32 structHash = keccak256(
             abi.encode(
                 ArbTypes.OPPORTUNITY_TYPEHASH,
@@ -306,8 +340,6 @@ contract ArbSupervisorTest is Test {
             )
         );
 
-        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, digest);
-        return abi.encodePacked(r, s, v);
+        return keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
     }
 }

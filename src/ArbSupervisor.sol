@@ -34,6 +34,7 @@ contract ArbSupervisor is Ownable, Pausable, ReentrancyGuard, EIP712Domain {
 
     mapping(address => bool) public isSigner;
     mapping(bytes32 => bool) public usedPrediction;
+    mapping(bytes32 => bool) public usedPredictionId;
     mapping(uint24 => bool) public allowedFeeTier;
 
     event SignerUpdated(address indexed signer, bool allowed);
@@ -167,8 +168,8 @@ contract ArbSupervisor is Ownable, Pausable, ReentrancyGuard, EIP712Domain {
 
         usedPrediction[digest] = true;
         if (opportunity.predictionId != bytes32(0)) {
-            if (usedPrediction[opportunity.predictionId]) revert ReplayDetected();
-            usedPrediction[opportunity.predictionId] = true;
+            if (usedPredictionId[opportunity.predictionId]) revert ReplayDetected();
+            usedPredictionId[opportunity.predictionId] = true;
         }
 
         (amountOut, profit) = executor.executeOpportunity(opportunity, msg.sender);
