@@ -1,5 +1,3 @@
-Author: Zachary King - github.com/zacharyericking/sample_uniswap_flash_loans
-
 # `src/` Module
 
 Objective: production smart contracts for signature-gated triangular arbitrage.
@@ -10,3 +8,5 @@ Objective: production smart contracts for signature-gated triangular arbitrage.
 - `interfaces/`: external dependencies (ERC20 and Uniswap router interfaces).
 - `libraries/`: cryptography and safe token transfer helpers.
 - `utils/`: reusable security primitives (ownership, pause, reentrancy).
+
+Author: Zachary King - github.com/zacharyericking/sample_uniswap_flash_loans

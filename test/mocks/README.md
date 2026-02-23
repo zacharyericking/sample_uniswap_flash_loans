@@ -1,5 +1,3 @@
-Author: Zachary King - github.com/zacharyericking/sample_uniswap_flash_loans
-
 # `test/mocks/` Module
 
 Objective: provide controlled dependencies and adversarial behavior for security testing.
@@ -9,3 +7,5 @@ Objective: provide controlled dependencies and adversarial behavior for security
 - `ReentrantToken.sol`: malicious token attempting callback reentrancy.
 
 Mocks allow precise validation of error paths and invariants in production contracts.
+
+Author: Zachary King - github.com/zacharyericking/sample_uniswap_flash_loans
