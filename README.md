@@ -1,4 +1,4 @@
-# sample_uniswap_flash_loans
+# Sample Uniswap Flash Loans
 
 Author: Zachary King - github.com/zacharyericking/sample_uniswap_flash_loans
 
