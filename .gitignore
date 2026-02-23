@@ -18,7 +18,7 @@ states/
 
 # Foundry build artifacts
 out/
-cache/Í
+cache/
 broadcast/
 
 .cursor/
