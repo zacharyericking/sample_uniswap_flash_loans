@@ -1,22 +1,47 @@
+# sample_uniswap_flash_loans
+
 Author: Zachary King - github.com/zacharyericking/sample_uniswap_flash_loans
 
-# uniswap_flash_loans
-Author: Zachary King - github.com/zacharyericking
+This repository is used for triangular arbitrage on Uniswap v3 using off-chain alpha signals
+powered by AI, ML, and statistical learning. Those signals identify candidate opportunities and
+trigger supervisor-mediated on-chain execution through signed predictions.
 
 Objective: secure, signature-gated triangular arbitrage execution on Polygon and Arbitrum using
 an off-chain signer and an on-chain supervisor/executor split.
 
+## Uniswap v3 Fee Levels (Layperson Explanation)
+
+Uniswap v3 lets the same token pair exist in multiple pools with different fee levels. The standard
+v3 fee levels are 0.01%, 0.05%, 0.30%, and 1.00%
+([Uniswap Docs: Fees](https://docs.uniswap.org/concepts/protocol/fees)).
+
+In plain terms, lower-fee pools are usually better for pairs that move less (like stablecoins),
+while higher-fee pools are common for assets that move more because liquidity providers take more
+risk and want higher compensation
+([Uniswap Docs: Fees](https://docs.uniswap.org/concepts/protocol/fees)).
+
+Uniswap v3 also uses concentrated liquidity, where liquidity is provided in specific price ranges,
+which can make available liquidity differ by pool and time
+([Uniswap Docs: Concentrated Liquidity](https://docs.uniswap.org/concepts/protocol/concentrated-liquidity)).
+
+Because one token pair can have several fee-tier pools and liquidity can be distributed differently,
+temporary price differences can appear across routes. A triangular arbitrage strategy tries to
+capture these short-lived differences, but a trade is only worth taking if net profit remains
+positive after fees, slippage, and gas.
+
 ## Repository Module Index
 
-| Module | Primary Responsibility | Key Files |
-| --- | --- | --- |
-| `src/` | Production arbitrage supervision and execution logic | `ArbSupervisor.sol`, `TriangularArbExecutor.sol`, `ArbTypes.sol` |
-| `src/libraries/` | Signature, typed-data, and token safety primitives | `ECDSA.sol`, `EIP712Domain.sol`, `SafeTransferLib.sol` |
-| `src/utils/` | Access control, pause, and reentrancy protections | `Ownable.sol`, `Pausable.sol`, `ReentrancyGuard.sol` |
-| `src/interfaces/` | External protocol/token interfaces | `IERC20.sol`, `ISwapRouter.sol` |
-| `script/` | Deployment and signed-opportunity execution automation | `DeployPolygon.s.sol`, `DeployArbitrum.s.sol`, `ExecutePrediction.s.sol` |
-| `offchain/` | EIP-712 opportunity signing pipeline | `signOpportunity.ts` |
-| `test/` | Security and behavioral verification | `ArbSupervisor.t.sol`, `TriangularArbExecutor.t.sol`, mocks |
+
+| Module            | Primary Responsibility                                 | Key Files                                                                |
+| ----------------- | ------------------------------------------------------ | ------------------------------------------------------------------------ |
+| `src/`            | Production arbitrage supervision and execution logic   | `ArbSupervisor.sol`, `TriangularArbExecutor.sol`, `ArbTypes.sol`         |
+| `src/libraries/`  | Signature, typed-data, and token safety primitives     | `ECDSA.sol`, `EIP712Domain.sol`, `SafeTransferLib.sol`                   |
+| `src/utils/`      | Access control, pause, and reentrancy protections      | `Ownable.sol`, `Pausable.sol`, `ReentrancyGuard.sol`                     |
+| `src/interfaces/` | External protocol/token interfaces                     | `IERC20.sol`, `ISwapRouter.sol`                                          |
+| `script/`         | Deployment and signed-opportunity execution automation | `DeployPolygon.s.sol`, `DeployArbitrum.s.sol`, `ExecutePrediction.s.sol` |
+| `offchain/`       | EIP-712 opportunity signing pipeline                   | `signOpportunity.ts`                                                     |
+| `test/`           | Security and behavioral verification                   | `ArbSupervisor.t.sol`, `TriangularArbExecutor.t.sol`, mocks              |
+
 
 ## Relationship Map
 
@@ -39,6 +64,8 @@ flowchart LR
   tests -->|"execution path coverage"| triangularExecutor
 ```
 
+
+
 ## Supervisor-Operated Execution Flow
 
 1. Strategy system produces a triangular opportunity candidate.
@@ -53,6 +80,7 @@ flowchart LR
 ### Polygon
 
 Required environment variables:
+
 - `DEPLOYER_PRIVATE_KEY`
 - `OWNER`
 - `SUPERVISOR_SIGNER`
@@ -65,6 +93,7 @@ Run:
 ### Arbitrum
 
 Required environment variables:
+
 - `DEPLOYER_PRIVATE_KEY`
 - `OWNER`
 - `SUPERVISOR_SIGNER`
@@ -79,6 +108,7 @@ Run:
 Use: `offchain/signOpportunity.ts`
 
 Required environment variables:
+
 - `SUPERVISOR_SIGNER_PRIVATE_KEY`
 - `CHAIN_ID`
 - `SUPERVISOR_ADDRESS`
@@ -108,6 +138,7 @@ Output includes `OPPORTUNITY_SIGNATURE` for on-chain execution.
 Use: `script/ExecutePrediction.s.sol`
 
 Required environment variables:
+
 - `CALLER_PRIVATE_KEY`
 - `SUPERVISOR`
 - `OPPORTUNITY_SIGNATURE`

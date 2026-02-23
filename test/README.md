@@ -1,5 +1,3 @@
-Author: Zachary King - github.com/zacharyericking/sample_uniswap_flash_loans
-
 # `test/` Module
 
 Objective: verify security and behavior of supervisor/executor modules.
@@ -10,3 +8,7 @@ Objective: verify security and behavior of supervisor/executor modules.
 - `utils/`: minimal local test harness helpers.
 
 The test suite validates the repository's core objective: safe, profitable, authorized execution.
+
+
+
+Author: Zachary King - github.com/zacharyericking/sample_uniswap_flash_loans
