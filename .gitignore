@@ -1,0 +1,24 @@
+# Author: Zachary King - github.com/zacharyericking/sample_uniswap_flash_loans
+
+# Remix compiler artifacts
+**/artifacts/
+**/artifacts/**
+
+# Remix plugin state folders
+deps/
+states/
+
+# Debug info
+*.dbg.json
+*.tsbuildinfo
+
+# Optional
+.env
+.env.local
+
+# Foundry build artifacts
+out/
+cache/
+broadcast/
+
+.cursor/
